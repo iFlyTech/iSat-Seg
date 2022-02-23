@@ -206,3 +206,182 @@ def convert_to_8Bit(inputRaster, outputRaster,
     '''
 
     srcRaster = gdal.Open(inputRaster)
+    cmd = ['gdal_translate', '-ot', outputPixType, '-of', 
+           outputFormat]
+    
+    # iterate through bands
+    for bandId in range(srcRaster.RasterCount):
+        bandId = bandId+1
+        band = srcRaster.GetRasterBand(bandId)
+        if rescale_type == 'rescale':
+            bmin = band.GetMinimum()        
+            bmax = band.GetMaximum()
+            # if not exist minimum and maximum values
+            if bmin is None or bmax is None:
+                (bmin, bmax) = band.ComputeRasterMinMax(1)
+            # else, rescale
+            band_arr_tmp = band.ReadAsArray()
+            bmin = np.percentile(band_arr_tmp.flatten(), 
+                                 percentiles[0])
+            bmax= np.percentile(band_arr_tmp.flatten(), 
+                                percentiles[1])
+
+        else:
+            bmin, bmax = 0, 65535
+
+        cmd.append('-scale_{}'.format(bandId))
+        cmd.append('{}'.format(bmin))
+        cmd.append('{}'.format(bmax))
+        cmd.append('{}'.format(0))
+        cmd.append('{}'.format(255))
+
+    cmd.append(inputRaster)
+    cmd.append(outputRaster)
+    print ("Conversion command:", cmd)
+    subprocess.call(cmd)
+    
+    return
+
+###############################################################################
+def load_multiband_im(image_loc, method='gdal'):
+    '''
+    Use gdal to laod multiband files.  If image is 1-band or 3-band and 8bit, 
+    cv2 will be much faster, so set method='cv2'
+    Return numpy array
+    '''
+    
+    im_gdal = gdal.Open(image_loc)
+    nbands = im_gdal.RasterCount
+    
+    # use gdal, necessary for 16 bit
+    if method == 'gdal':
+        bandlist = []
+        for band in range(1, nbands+1):
+            srcband = im_gdal.GetRasterBand(band)
+            band_arr_tmp = srcband.ReadAsArray()
+            bandlist.append(band_arr_tmp)
+        img = np.stack(bandlist, axis=2)
+
+    # use cv2, which is much faster if data is 8bit and 1-band or 3-band
+    elif method == 'cv2':
+        # check data type (must be 8bit)
+        srcband = im_gdal.GetRasterBand(1)
+        band_arr_tmp = srcband.ReadAsArray()
+        if band_arr_tmp.dtype == 'uint16': 
+            print ("cv2 cannot open 16 bit images")
+            return []
+        # ingest
+        if nbands == 1:
+            img = cv2.imread(image_loc, 0)
+        elif nbands == 3:
+            img = cv2.imread(image_loc, 1)
+        else:
+            print ("cv2 cannot open images with", nbands, "bands")
+            return []
+
+    return img
+
+
+###############################################################################
+def latlon2pixel(lat, lon, input_raster='', targetsr='', geom_transform=''):
+    '''
+    Convert latitude, longitude coords to pixexl coords.
+    From spacenet geotools
+    '''
+
+    sourcesr = osr.SpatialReference()
+    sourcesr.ImportFromEPSG(4326)
+
+    geom = ogr.Geometry(ogr.wkbPoint)
+    geom.AddPoint(lon, lat)
+
+    if targetsr == '':
+        src_raster = gdal.Open(input_raster)
+        targetsr = osr.SpatialReference()
+        targetsr.ImportFromWkt(src_raster.GetProjectionRef())
+    coord_trans = osr.CoordinateTransformation(sourcesr, targetsr)
+    if geom_transform == '':
+        src_raster = gdal.Open(input_raster)
+        transform = src_raster.GetGeoTransform()
+    else:
+        transform = geom_transform
+
+    x_origin = transform[0]
+    # print(x_origin)
+    y_origin = transform[3]
+    # print(y_origin)
+    pixel_width = transform[1]
+    # print(pixel_width)
+    pixel_height = transform[5]
+    # print(pixel_height)
+    geom.Transform(coord_trans)
+    # print(geom.GetPoint())
+    x_pix = (geom.GetPoint()[0] - x_origin) / pixel_width
+    y_pix = (geom.GetPoint()[1] - y_origin) / pixel_height
+
+    return (x_pix, y_pix)
+
+###############################################################################
+def create_buffer_geopandas(geoJsonFileName, bufferDistanceMeters=2, 
+                          bufferRoundness=1, projectToUTM=True):
+    '''
+    Create a buffer around the lines of the geojson. 
+    Return a geodataframe.
+    '''
+    
+    try:
+        inGDF = gpd.read_file(geoJsonFileName)
+    except:
+        return []
+    
+    # set a few columns that we will need later
+    inGDF['type'] = inGDF['road_type'].values            
+    inGDF['class'] = 'highway'  
+    inGDF['highway'] = 'highway'  
+    
+    if len(inGDF) == 0:
+        return []
+
+    # Transform gdf Roadlines into UTM so that Buffer makes sense
+    if projectToUTM:
+        tmpGDF = ox.project_gdf(inGDF)
+    else:
+        tmpGDF = inGDF
+
+    gdf_utm_buffer = tmpGDF
+
+    # perform Buffer to produce polygons from Line Segments
+    gdf_utm_buffer['geometry'] = tmpGDF.buffer(bufferDistanceMeters,
+                                                bufferRoundness)
+
+    gdf_utm_dissolve = gdf_utm_buffer.dissolve(by='class')
+    gdf_utm_dissolve.crs = gdf_utm_buffer.crs
+
+    if projectToUTM:
+        gdf_buffer = gdf_utm_dissolve.to_crs(inGDF.crs)
+    else:
+        gdf_buffer = gdf_utm_dissolve
+
+    return gdf_buffer
+
+
+###############################################################################
+def gdf_to_array(gdf, im_file, output_raster, burnValue=150):
+    
+    '''
+    Turn geodataframe to array, save as image file with non-null pixels 
+    set to burnValue
+    '''
+
+    NoData_value = 0      # -9999
+
+    gdata = gdal.Open(im_file)
+    
+    # set target info
+    target_ds = gdal.GetDriverByName('GTiff').Create(output_raster, 
+                                                     gdata.RasterXSize, 
+                                                     gdata.RasterYSize, 1, gdal.GDT_Byte)
+    target_ds.SetGeoTransform(gdata.GetGeoTransform())
+    
+    # set raster info
+    raster_srs = osr.SpatialReference()
