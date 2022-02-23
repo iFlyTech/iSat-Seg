@@ -385,3 +385,121 @@ def gdf_to_array(gdf, im_file, output_raster, burnValue=150):
     
     # set raster info
     raster_srs = osr.SpatialReference()
+    raster_srs.ImportFromWkt(gdata.GetProjectionRef())
+    target_ds.SetProjection(raster_srs.ExportToWkt())
+    
+    band = target_ds.GetRasterBand(1)
+    band.SetNoDataValue(NoData_value)
+    
+    outdriver=ogr.GetDriverByName('MEMORY')
+    outDataSource=outdriver.CreateDataSource('memData')
+    tmp=outdriver.Open('memData',1)
+    outLayer = outDataSource.CreateLayer("states_extent", raster_srs, 
+                                         geom_type=ogr.wkbMultiPolygon)
+    # burn
+    burnField = "burn"
+    idField = ogr.FieldDefn(burnField, ogr.OFTInteger)
+    outLayer.CreateField(idField)
+    featureDefn = outLayer.GetLayerDefn()
+    for geomShape in gdf['geometry'].values:
+        
+        outFeature = ogr.Feature(featureDefn)
+        outFeature.SetGeometry(ogr.CreateGeometryFromWkt(geomShape.wkt))
+        outFeature.SetField(burnField, burnValue)
+        outLayer.CreateFeature(outFeature)
+        outFeature = 0
+    
+    gdal.RasterizeLayer(target_ds, [1], outLayer, burn_values=[burnValue])
+    outLayer = 0
+    outDatSource = 0
+    tmp = 0
+        
+    return 
+
+
+###############################################################################
+def get_road_buffer(geoJson, im_vis_file, output_raster, 
+                              buffer_meters=2, burnValue=1, 
+                              bufferRoundness=6, 
+                              plot_file='', figsize=(6,6), fontsize=6,
+                              dpi=800, show_plot=False, 
+                              verbose=False):    
+    '''
+    Get buffer around roads defined by geojson and image files.
+    Calls create_buffer_geopandas() and gdf_to_array().
+    Assumes in_vis_file is an 8-bit RGB file.
+    Returns geodataframe and ouptut mask.
+    '''
+    
+     
+    gdf_buffer = create_buffer_geopandas(geoJson,
+                                         bufferDistanceMeters=buffer_meters,
+                                         bufferRoundness=bufferRoundness, 
+                                         projectToUTM=True)    
+
+        
+    # create label image
+    if len(gdf_buffer) == 0:
+        mask_gray = np.zeros(cv2.imread(im_vis_file,0).shape)
+        cv2.imwrite(output_raster, mask_gray)        
+    else:
+        gdf_to_array(gdf_buffer, im_vis_file, output_raster, 
+                                          burnValue=burnValue)
+    # load mask
+    mask_gray = cv2.imread(output_raster, 0)
+    
+    # make plots
+    if plot_file:
+        # plot all in a line
+        if (figsize[0] != figsize[1]):
+            fig, (ax0, ax1, ax2, ax3) = plt.subplots(1,4, figsize=figsize)#(13,4))
+        # else, plot a 2 x 2 grid
+        else:
+            fig, ((ax0, ax1), (ax2, ax3)) = plt.subplots(2,2, figsize=figsize)
+    
+        # road lines
+        try:
+            gdfRoadLines = gpd.read_file(geoJson)
+            gdfRoadLines.plot(ax=ax0, marker='o', color='red')
+        except:
+            ax0.imshow(mask_gray)
+        ax0.axis('off')
+        ax0.set_aspect('equal')
+        ax0.set_title('Roads from GeoJson', fontsize=fontsize)
+                
+        # first show raw image
+        im_vis = cv2.imread(im_vis_file, 1)
+        img_mpl = cv2.cvtColor(im_vis, cv2.COLOR_BGR2RGB)
+        ax1.imshow(img_mpl)
+        ax1.axis('off')
+        ax1.set_title('8-bit RGB Image', fontsize=fontsize)
+        
+        # plot mask
+        ax2.imshow(mask_gray)
+        ax2.axis('off')
+        ax2.set_title('Roads Mask (' + str(np.round(buffer_meters)) \
+                                   + ' meter buffer)', fontsize=fontsize)
+     
+        # plot combined
+        ax3.imshow(img_mpl)    
+        # overlay mask
+        # set zeros to nan
+        z = mask_gray.astype(float)
+        z[z==0] = np.nan
+        # change palette to orange
+        palette = plt.cm.gray
+        #palette.set_over('yellow', 0.9)
+        palette.set_over('lime', 0.9)
+        ax3.imshow(z, cmap=palette, alpha=0.66, 
+                norm=matplotlib.colors.Normalize(vmin=0.5, vmax=0.9, clip=False))
+        ax3.set_title('8-bit RGB Image + Buffered Roads', fontsize=fontsize) 
+        ax3.axis('off')
+        
+        #plt.axes().set_aspect('equal', 'datalim')
+
+        plt.tight_layout()
+        plt.savefig(plot_file, dpi=dpi)
+        if not show_plot:
+            plt.close()
+        
+    return mask_gray, gdf_buffer
