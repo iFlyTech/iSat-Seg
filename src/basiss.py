@@ -236,3 +236,183 @@ def load_files_universal(file_list_loc, nbands=3, n_classes=2,
         elif n_classes == 1:
             mask_resize = cv2.resize(mask, resize_size)
         else:
+            print ("Need write some more code for n_classes > 2!")
+            break
+        #print "mask_resize.shape:", mask_resize
+        ################################
+
+        ################################
+        # add to arrays
+        name_arr.append(im_test_root)
+        mask_arr[i] = mask_resize
+        im_arr[i] = im_resize
+        if export_im_vis_arr:
+            im_vis_arr[i] = im_vis_resize
+        # delete to save memory
+        del row, sat, sat_vis, mask, im_resize, mask_resize
+
+    # reshape mask, if desired
+    if reshape_mask or n_classes==1:
+        mask_arr0 = np.array(mask_arr)
+        #print "mask_arr0.shape:", mask_arr0.shape
+        N,h,w = mask_arr0.shape
+        mask_arr = np.reshape(mask_arr0, (N,h,w,1))
+    
+    # reshape im_vis if only 1 band, since keras needs a tensor (N,h,w,nbands)
+    if nbands == 1:
+        tmp_arr = np.array(im_arr)
+        N,h,w = tmp_arr.shape
+        if super_verbose:
+            print ("im_arr.shape:", tmp_arr.shape)
+        im_arr = np.reshape(np.array(im_arr),  (N,h,w,1))
+        im_vis_arr = np.reshape(np.array(im_vis_arr),  (N,h,w,1))
+    
+    
+    print ("create np name arr..")
+    name_arr = np.asarray(name_arr)
+    print ("name_arr.shape:", name_arr.shape)
+
+    return name_arr, im_arr, im_vis_arr, mask_arr
+
+
+###############################################################################
+def slice_ims(im_arr, mask_arr, names_arr, slice_x, slice_y, 
+                    stride_x, stride_y,
+                    pos_columns = ['idx', 'name', 'xmin', 'ymin', 'slice_x', 
+                                   'slice_y', 'im_x', 'im_y'],
+                    verbose=True, super_verbose=False):
+    '''Slice images into patches, assume ground truth masks are present'''
+    
+    if verbose:
+        print ("Slicing images and masks...")
+    t0 = time.time()    
+    mask_buffer = 0
+    count = 0
+    im_list, mask_list, name_list, pos_list = [], [], [], []
+    nims,h,w,nbands = im_arr.shape
+    for i, (im, mask, name) in enumerate(zip(im_arr, mask_arr, names_arr)):
+
+        seen_coords = set()
+        
+        if verbose and (i % 100) == 0:
+            print (i, "im_shape:", im.shape, "mask_shape:", mask.shape)
+                
+        # dice it up
+        # after resize, iterate through image and bin it up appropriately
+        for x in range(0, w - 1, stride_x):  
+            for y in range(0, h - 1, stride_y): 
+                
+                xmin = min(x, w-slice_x)
+                ymin = min(y, h - slice_y) 
+                coords = (xmin, ymin)
+                
+                # check if we've already seen these coords
+                if coords in seen_coords:
+                    if super_verbose:
+                        print ("coords already encountered ", \
+                               "(xmin, ymin):", coords)
+                    continue
+                else:
+                    seen_coords.add(coords)
+                
+                # check if we screwed up binning
+                if (xmin + slice_x > w) or (ymin + slice_y > h):
+                    print ("Improperly binned image, see slice_ims()")
+                    return
+
+                # get satellite image cutout
+                im_cutout = im[ymin:ymin + slice_y, xmin:xmin + slice_x]
+                
+                ##############
+                # skip if the whole thing is black
+                if np.max(im_cutout) < 1.:
+                    if super_verbose:
+                        print ("Cutout null, skipping...")
+                    continue
+                else:
+                    count += 1
+                ###############
+                
+                # get mask cutout
+                x1, y1 = xmin + mask_buffer, ymin + mask_buffer
+                mask_cutout  = mask[y1:y1 + slice_y, x1:x1 + slice_x]
+                
+                if super_verbose:
+                    print ("x, y:", x, y )
+                    print ("  x_min, y_min:", xmin, ymin)
+                    print ("  x_bounds:", xmin, xmin+slice_x, 
+                                   "y_bounds:", ymin, ymin+slice_y)
+                    print ("  im_cutout.shape:", im_cutout.shape)
+                    print ("  mask_cutout.shape:", mask_cutout.shape)
+
+                # set slice name
+                name_full = str(i) + '_' + name + '_' \
+                    + str(xmin) + '_' + str(ymin) + '_' + str(slice_x) \
+                    + '_' + str(slice_y)  + '_' + str(w) + '_' + str(h)
+                pos = [i, name, xmin, ymin, slice_x, slice_y, w, h]
+                # add to arrays
+                #idx_list.append(idx_full)
+                name_list.append(name_full)
+                im_list.append(im_cutout)
+                mask_list.append(mask_cutout) 
+                pos_list.append(pos)
+    
+    # convert to np arrays
+    del im_arr
+    del mask_arr
+    #idx_out_arr = np.array(idx_list)
+    name_out_arr = np.array(name_list)
+    im_out_arr = np.array(im_list)
+    mask_out_arr = np.array(mask_list)
+    
+    # create position datataframe
+    df_pos = pd.DataFrame(pos_list, columns=pos_columns)
+    df_pos.index = np.arange(len(df_pos))
+    
+    if verbose:
+        print ("  im_out_arr.shape;", im_out_arr.shape)
+        print ("  mask_out_arr.shape:", mask_out_arr.shape)
+        print ("  mask_out_arr[0] == mask_out_arr[1]?:", 
+                   np.array_equal(mask_out_arr[0], mask_out_arr[1]))
+        print ("  time to slice arrays:", time.time() - t0, "seconds")
+        
+    return df_pos, name_out_arr, im_out_arr, mask_out_arr
+
+
+###############################################################################
+### Define model(s)
+###############################################################################
+def unet(input_shape, n_classes=2, kernel=3, loss='binary_crossentropy', 
+         optimizer='SGD', data_format='channels_last'):
+    '''
+    https://arxiv.org/abs/1505.04597
+    https://github.com/jocicmarko/ultrasound-nerve-segmentation/blob/master/train.py
+    '''
+    
+    print ("UNET input shape:", input_shape) 
+    #inputs = Input((input_size, input_size, n_channels))
+    inputs = Input(input_shape)
+    
+    conv1 = Conv2D(32, (kernel, kernel), activation='relu', padding='same')(inputs)
+    conv1 = Conv2D(32, (kernel, kernel), activation='relu', padding='same')(conv1)
+    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+
+    conv2 = Conv2D(64, (kernel, kernel), activation='relu', padding='same')(pool1)
+    conv2 = Conv2D(64, (kernel, kernel), activation='relu', padding='same')(conv2)
+    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+
+    conv3 = Conv2D(128, (kernel, kernel), activation='relu', padding='same')(pool2)
+    conv3 = Conv2D(128, (kernel, kernel), activation='relu', padding='same')(conv3)
+    pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
+
+    conv4 = Conv2D(256, (kernel, kernel), activation='relu', padding='same')(pool3)
+    conv4 = Conv2D(256, (kernel, kernel), activation='relu', padding='same')(conv4)
+    pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
+
+    conv5 = Conv2D(512, (kernel, kernel), activation='relu', padding='same')(pool4)
+    conv5 = Conv2D(512, (kernel, kernel), activation='relu', padding='same')(conv5)
+
+    up6 = concatenate([Conv2DTranspose(256, (2, 2), strides=(2, 2), padding='same')(conv5), conv4], axis=3)
+    #up6 = merge([UpSampling2D(size=(2, 2))(conv5), conv4], mode='concat', concat_axis=1)
+    conv6 = Conv2D(256, (kernel, kernel), activation='relu', padding='same')(up6)
+    conv6 = Conv2D(256, (kernel, kernel), activation='relu', padding='same')(conv6)
