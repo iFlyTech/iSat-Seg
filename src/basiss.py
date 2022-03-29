@@ -589,3 +589,182 @@ def post_process_tiles_all(df_pos, mask_predict_arr, out_dir, out_dir_vis='',
         if len(out_dir_count) > 0:
             tmp_mult = mask_max / np.max(overlay_count)
             cv2.imwrite(out_file_count, overlay_count * tmp_mult)
+
+        # create list
+        # the final two columns are for ground truth mask and mask_vis, 
+        #   which we aren't tracking here
+        outrow = [name, out_file_mask, out_file_vis, '', '']
+        test_list_loc.append(outrow)
+
+    return test_list_loc
+       
+            
+###############################################################################
+###############################################################################            
+def main():
+    
+    # construct the argument parse and parse the arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--path', type=str, default='/raid/local/src/basiss/',
+                        help="path to package")
+    parser.add_argument('--mode', type=str, default='test',
+                        help="test or train")
+    parser.add_argument('--model', type=str, default='unet',
+                        help="implemented segmentation models [unet]")
+    parser.add_argument('--gpu', type=str, default='0',
+                        help="GPU number")
+    parser.add_argument('--prefix', type=str, default='',
+                        help="Naming prefix")
+    parser.add_argument('--loss', type=str, default='binary_crossentropy',
+                        help="Model loss function [binary_crossentropy]")
+    parser.add_argument('--optimizer', type=str, default='SGD',
+                        help="Model optimizer [SGD, ADAM, ADAGRAD]")
+    parser.add_argument('--epochs', type=int, default=20,
+                        help="Training epochs")
+    parser.add_argument('--batchsize', type=int, default=32,
+                        help="Training epochs")
+    parser.add_argument('--model_weights', type=str, default='',
+                        help="Weight file")    
+    parser.add_argument('--n_bands', type=int, default=3,
+                        help="Number of input bands [3, 8]")    
+    parser.add_argument('--n_classes', type=int, default=2,
+                        help="Number of classes [background, road]")
+    parser.add_argument('--file_list', type=str, default='',
+                        help=".txt file holding list of image IDs")
+    parser.add_argument('--validation_split', type=float, default=0.1,
+                        help="Fraction to hold out of training for validation")   
+    parser.add_argument('--early_stopping_patience', type=int, default=4,
+                        help="Number of steps to wait for early stopping") 
+    parser.add_argument('--slice_x', type=int, default=0,
+                        help="Slice images into windows of this width")    
+    parser.add_argument('--slice_y', type=int, default=0,
+                        help="Slice images into windows of this height")    
+    parser.add_argument('--stride_x', type=int, default=0,
+                        help="Stride in x direction for training slicing")    
+    parser.add_argument('--stride_y', type=int, default=0,
+                        help="Stride in y direction for training slicing")    
+    parser.add_argument('--resize_height', type=int, default=-1,
+                        help="resize height in pixels, set <=0 to use " \
+                        + "native height. This is ignored if slicing.")   
+    parser.add_argument('--resize_width', type=int, default=-1,
+                        help="resize width in pixels, set <=0 to use " \
+                        + "native width. This is ignored if slicing.")      
+    parser.add_argument('--clip_mask', type=int, default=1,
+                        help="switch to plot clip mask values to 1.0")   
+    parser.add_argument('--plot_keras_model', type=int, default=0,
+                        help="switch to plot the keras model [1 = True]")   
+    parser.add_argument('--max_len', type=int, default=1000000,
+                        help="Maximum number of train/test images to consider")    
+                 
+    args = parser.parse_args()
+    #######################
+    
+    print ("\n\nRun basiss.py...")
+    print ("args", args)
+        
+    # Set im_load_resize. Only resize if we're not slicing, and we set 
+    #  output_width and output_height > 0
+    if (args.slice_x <= 0) and (args.slice_y <= 0) \
+                and (args.resize_width > 0) and (args.resize_height > 0):
+        im_load_resize = (args.resize_height, args.resize_width)
+    else:
+        im_load_resize = ()
+    print ("im_load_resize:", im_load_resize)
+    
+    file_list_loc = os.path.join(args.path, 'packaged_data/' + args.file_list)
+    
+    # model vis
+    model_vis_file = os.path.join(args.path, args.model + '.png')
+
+    now = datetime.datetime.now()
+    date_string = now.strftime('%Y_%m_%d.%H-%M-%S')
+    print ("Date string:", date_string)
+    #res_name = args.mode + '__' + args.suffix + '__' + date_string
+    
+    # define directories
+    res0_dir = os.path.join(args.path, 'results')
+    res_dir = res0_dir# + res_name
+    test_mask_dir = os.path.join(res_dir, args.prefix + '_' + args.mode \
+                                 + '_outputs/')
+    test_mask_vis_dir = os.path.join(res_dir, args.prefix + '_' \
+                        + args.mode + '_outputs_vis/')
+    test_count_dir = os.path.join(res_dir, args.prefix + '_' + args.mode \
+                        + '_outputs_slice_count/')
+    test_raw_dir = os.path.join(res_dir, args.prefix + '_' + args.mode \
+                        + '_outputs_slice_raw/')
+    outfile_test_locs = os.path.join(args.path, 'packaged_data/' \
+                                     + args.prefix + '_' + args.mode \
+                                     + '_file_loc.csv')
+    
+    #res_dir = res0_dir + args.suffix + '/'# + res_name
+    for d in [res_dir]:    
+        if not os.path.exists(d):
+            os.mkdir(d)
+    
+    model_name_f = os.path.join(res_dir, args.prefix  + '_model_final.hdf5')
+    model_name = os.path.join(res_dir, args.prefix  + '_model_best.hdf5')
+    model_weights = os.path.join(res_dir, args.model_weights)
+    #test_file = res_dir + args.prefix + '_imgs_mask_test.npy'
+    shuffle=True
+        
+    ###########################################################################    
+    # setting device here fails, do it in the function call
+    #with K.tf.device('/gpu:'+args.gpu):
+        #K._set_session(K.tf.Session(config=K.tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)))
+    if 2 > 1:   # dummy switch for now, since the above lines often fail 
+
+        # load data
+        names, X, X_vis, Y = load_files_universal(file_list_loc, 
+                                      nbands=args.n_bands, 
+                                      n_classes=args.n_classes,
+                                      output_size=im_load_resize,
+                                      max_len = args.max_len,
+                                      export_im_vis_arr=False,
+                                      reshape_mask=False)
+        if bool(args.clip_mask):
+            Y = np.clip(Y, 0, 1)
+
+        print ("im_arr.shape:", X.shape)
+        print ("mask_arr.shape:", Y.shape)
+        print ("im_arr.dtype:", X.dtype)
+        print ("mask_arr.dtype:", Y.dtype)
+        print ("np.max(X)", np.max(X))
+        print ("np.max(Y)", np.max(Y))
+
+        if (args.slice_x > 0) and (args.slice_y > 0):
+            df_pos_slice, names_slice, X, Y = \
+                        slice_ims(X, Y, names, args.slice_x, 
+                                  args.slice_y, 
+                                  args.stride_x, 
+                                  args.stride_y)
+            print ("After slicing...")
+            print (" im_arr.shape:", X.shape)
+            print (" mask_arr.shape:", Y.shape)
+            print (" im_arr.dtype:", X.dtype)
+            print (" mask_arr.dtype:", Y.dtype)
+            print (" np.max(X)", np.max(X))
+            print (" np.max(Y)", np.max(Y))
+            
+        # define algorithm input shape X has shape (N, h, w, nbands)
+        input_shape = (X.shape[1], X.shape[2], args.n_bands)
+        print ("algo input_shape:", input_shape)
+
+
+
+        ####################
+        # define model and load data
+        if args.model.upper() == 'UNET':
+           model = unet(input_shape=input_shape, n_classes=args.n_classes,
+                        loss=args.loss, optimizer=args.optimizer)
+        else:
+            print ("Import segementation model of your choice...")            
+            
+        ####################
+        # Model visualization ?
+        if args.plot_keras_model > 0:
+            keras.utils.vis_utils.plot_model(model, to_file=model_vis_file, 
+                                        show_shapes=True)
+
+        ####################
+        # preload weights, if desired
+        if len(args.model_weights) > 0:
