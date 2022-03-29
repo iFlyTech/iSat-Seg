@@ -416,3 +416,176 @@ def unet(input_shape, n_classes=2, kernel=3, loss='binary_crossentropy',
     #up6 = merge([UpSampling2D(size=(2, 2))(conv5), conv4], mode='concat', concat_axis=1)
     conv6 = Conv2D(256, (kernel, kernel), activation='relu', padding='same')(up6)
     conv6 = Conv2D(256, (kernel, kernel), activation='relu', padding='same')(conv6)
+
+    up7 = concatenate([Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='same')(conv6), conv3], axis=3)
+    #up7 = merge([UpSampling2D(size=(2, 2))(conv6), conv3], mode='concat', concat_axis=1)
+    conv7 = Conv2D(128, (kernel, kernel), activation='relu', padding='same')(up7)
+    conv7 = Conv2D(128, (kernel, kernel), activation='relu', padding='same')(conv7)
+
+    up8 = concatenate([Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same')(conv7), conv2], axis=3)
+    #up8 = merge([UpSampling2D(size=(2, 2))(conv7), conv2], mode='concat', concat_axis=1)
+    conv8 = Conv2D(64, (kernel, kernel), activation='relu', padding='same')(up8)
+    conv8 = Conv2D(64, (kernel, kernel), activation='relu', padding='same')(conv8)
+
+    up9 = concatenate([Conv2DTranspose(32, (2, 2), strides=(2, 2), padding='same')(conv8), conv1], axis=3)
+    #up9 = merge([UpSampling2D(size=(2, 2))(conv8), conv1], mode='concat', concat_axis=1)
+    conv9 = Conv2D(32, (kernel, kernel), activation='relu', padding='same')(up9)
+    conv9 = Conv2D(32, (kernel, kernel), activation='relu', padding='same')(conv9)
+
+    conv10 = Conv2D(n_classes, (1, 1), activation='sigmoid')(conv9)
+
+    model = Model(input=inputs, output=conv10)
+    
+    if optimizer.upper() == 'SGD':
+        opt_f = SGD()
+    elif optimizer.upper == 'ADAM':
+        opt_f = Adam()
+    elif optimizer.upper == 'ADAGRAD':
+        opt_f = Adagrad()
+    else:
+        print ("Unknown optimzer:", optimizer)
+        return
+    
+    model.compile(optimizer=opt_f, loss=loss, 
+                  metrics=[jaccard_coef, jaccard_coef_int, dice_coeff, 
+                           'accuracy', 'mean_squared_error', f1_score])#,
+                           #'precision', 'recall', 'f1score', 'mse'])
+
+    print ("UNET Total number of params:", model.count_params() )     
+    return model
+
+
+###############################################################################
+### Post-process
+###############################################################################
+def get_mask_tiles_from_name(df_pos, mask_predict_arr, name, 
+                               verbose=False):
+    
+    '''We slice all input tiles and output a list of masks, images, and names
+        df_pos_columns = ['idx', 'name', 'xmin', 'ymin', 'slice_x', 
+                          'slice_y', 'im_x', 'im_y'],
+    From this list of names, pull out all indexes that belong to a unique 
+    image                   
+    '''
+    
+    df_tmp = df_pos[df_pos['name'] == name]    
+    idxs = df_tmp.index.values  #df_tmp['idx'].values  
+    mask_tmp = mask_predict_arr[idxs]
+    
+    if verbose:
+        print ("Gathering all tiles for image:", name)
+        print ("  df_tmp:", df_tmp)
+        print ("  idxs:", idxs)
+        print ("  mask_tmp.shape:", mask_tmp.shape)
+        print ("  mask_tmp[0] == mask_tmp[-1]?", np.array_equal(mask_tmp[0], \
+               mask_tmp[-1]))
+
+    return df_tmp, mask_tmp
+
+
+###############################################################################
+def post_process_mask(df_pos_, mask_arr_, n_classes=2, super_verbose=False):
+    '''
+    For a dataframe of image positions (df_pos_), and the tiles of that image
+    (im_arr_), reconstruct the image mask
+    '''
+    
+    # get image width and height
+    w, h = df_pos_['im_x'].values[0], df_pos_['im_y'].values[0]
+    
+    # create numpy zeros of appropriate shape
+    mask_raw = np.zeros((h,w))
+
+    #  = create another zero array to record which pixels are overlaid
+    overlay_count = np.zeros((h,w))
+
+    # iterate through slices
+    for i, (idx, item) in enumerate(df_pos_.iterrows()):
+        #print (i, idx, item
+        [idx, name, xmin, ymin, slice_x, slice_y, im_x, im_y] = item
+        mask_slice = mask_arr_[i]
+        if super_verbose:
+            print ("item:", item)
+            
+        # for now, assume 2 channels, remove 0th (background) channel
+        if n_classes != 2:
+            print ("Need new code to handle n_channels != 2")
+            return
+        else:
+            mask_slice_refine = mask_slice[:,:,1]
+            
+        x0, x1 = xmin, xmin + slice_x
+        y0, y1 = ymin, ymin + slice_y
+
+        # add mask to mask_raw
+        mask_raw[y0:y1, x0:x1] += mask_slice_refine
+        # update count
+        overlay_count[y0:y1, x0:x1] += np.ones((slice_y, slice_x))
+
+    # compute normalized mask
+    # if overlay_count == 0, reset to 1
+    overlay_count[np.where(overlay_count == 0)] = 1
+                  
+    mask_norm = np.divide(mask_raw, overlay_count)
+
+    return mask_norm, mask_raw, overlay_count      
+        
+
+###############################################################################
+def post_process_tiles(df_pos, mask_predict_arr, image_name, 
+                       n_classes=2, super_verbose=False):
+            
+    '''We slice all test files and run through the classifier.  This function
+    calls get_mask_times_from_name() and post_process_mask() for the given
+    image name and creates total masks
+    '''
+            
+    df_tmp, mask_tmp = get_mask_tiles_from_name(df_pos, mask_predict_arr, 
+                                                image_name, 
+                                                verbose=super_verbose)
+    mask_norm, mask_raw, overlay_count = post_process_mask(df_tmp, mask_tmp, 
+                                  n_classes=n_classes, 
+                                  super_verbose=super_verbose)
+    
+    return mask_norm, mask_raw, overlay_count
+
+
+###############################################################################
+def post_process_tiles_all(df_pos, mask_predict_arr, out_dir, out_dir_vis='',
+                       out_dir_raw='', out_dir_count='', 
+                       n_classes=2, mask_max=255., verbose=False,
+                       super_verbose=False):
+            
+    '''We slice all test files and run through the classifier.  This function
+    calls get_mask_times_from_name() and post_process_mask() for each 
+    original image name and creates total masks
+    return list of [name, outile_mask, outfile_mask_vis]
+    '''
+    
+    names = np.unique(df_pos['name'].values)
+    test_list_loc = []
+    for i,name in enumerate(names):
+        if verbose:
+            print ("\nPost-process mask for image:", name)
+
+        mask_norm, mask_raw, overlay_count \
+                = post_process_tiles(df_pos, mask_predict_arr, name, 
+                       n_classes=n_classes, 
+                       super_verbose=super_verbose)
+
+        # define files
+        out_file_mask = os.path.join(out_dir, name)
+        out_file_vis = os.path.join(out_dir_vis, name)
+        out_file_mraw = os.path.join(out_dir_raw, name)
+        out_file_count = os.path.join(out_dir_count, name)
+        # save to file
+        cv2.imwrite(out_file_mask, mask_norm)
+        if len(out_dir_vis) > 0:
+            tmp_mult = mask_max / np.max(mask_norm)
+            cv2.imwrite(out_file_vis, mask_norm * tmp_mult)
+        if len(out_dir_raw) > 0:
+            tmp_mult = mask_max / np.max(mask_raw)
+            cv2.imwrite(out_file_mraw, mask_raw * tmp_mult)
+        if len(out_dir_count) > 0:
+            tmp_mult = mask_max / np.max(overlay_count)
+            cv2.imwrite(out_file_count, overlay_count * tmp_mult)
