@@ -4,4 +4,8 @@
 # create container
 	nvidia-docker build -t basiss path_to_basiss/docker
 # load container
-	nvidia-docker run -it -v /raid:/raid --name bassiss_train ba
+	nvidia-docker run -it -v /raid:/raid --name bassiss_train basiss
+
+##########################################################################
+# Training
+##############################################################
