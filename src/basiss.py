@@ -768,3 +768,135 @@ def main():
         ####################
         # preload weights, if desired
         if len(args.model_weights) > 0:
+            t1 = time.time()
+            print ("Load weights from:", model_weights)
+            model.load_weights(model_weights)   
+            print ("Time to load model weights:", time.time() - t1, "seconds")
+
+        ####################
+        # set callbacks
+        print ("Setting callbacks...")
+        model_checkpoint = ModelCheckpoint(model_name, monitor='val_loss', 
+                                           save_best_only=True)
+        early_stopping = EarlyStopping(monitor='val_loss', 
+                                       patience=args.early_stopping_patience, 
+                                       verbose=0, mode='auto')
+        print ("Callbacks successfully set")
+
+        ####################            
+        # set gpu
+        os.environ["CUDA_VISIBLE_DEVICES"]=str(args.gpu) 
+    
+        print ("\nCheck GPUs:")
+        from tensorflow.python.client import device_lib
+        print(device_lib.list_local_devices())
+
+        ####################        
+        # Train
+        if args.mode.upper() == 'TRAIN':    
+        
+            print ('model_name_f', model_name_f)
+            print ('model_name', model_name)
+            print ("Start training...")
+            t3 = time.time()
+            model.fit(X, Y, batch_size=args.batchsize, 
+                      epochs=args.epochs,
+                      verbose=1, shuffle=shuffle, 
+                      validation_split=args.validation_split,
+                      callbacks=[model_checkpoint, early_stopping])
+            
+            print ("Time to fit model:", time.time() - t3, "seconds")
+            model.save(model_name_f)
+            
+        ####################
+        # Test
+        elif args.mode.upper() == 'TEST':
+            # make dirs
+            for d in [res_dir, test_mask_dir, test_mask_vis_dir]:    
+                if not os.path.exists(d):
+                    os.mkdir(d)
+                 
+            t3 = time.time()
+            imgs_mask_test = model.predict(X, batch_size=args.batchsize,
+                                           verbose=1)
+            print ("Time to predict:", time.time() - t3, "seconds")
+            print ("imgs_mask_test.shape", imgs_mask_test.shape)
+            print ("imgs_mask_test[0].shape", imgs_mask_test[0].shape)
+                
+            scores = model.evaluate(X, Y, batch_size=args.batchsize,
+                                    verbose=1)
+            for i,n in enumerate(model.metrics_names):
+                print("%s: %.2f%%" % (model.metrics_names[i], scores[i]*100))
+            print ("scores", scores)
+            
+            ########################
+            # POST PROCESS
+            # slice, if desired
+            if (args.slice_x > 0) and (args.slice_y > 0):
+                # make slice dirs
+                for d in [test_count_dir, test_raw_dir]:
+                    if not os.path.exists(d):
+                        os.mkdir(d)
+
+                test_list_loc = post_process_tiles_all(df_pos_slice, 
+                                       imgs_mask_test, 
+                                       out_dir = test_mask_dir,
+                                       out_dir_vis=test_mask_vis_dir,
+                                       out_dir_raw=test_raw_dir, 
+                                       out_dir_count=test_count_dir, 
+                                       n_classes=args.n_classes, 
+                                       mask_max=255., 
+                                       verbose=True)
+
+            else:
+                # Iterate through results and save to file, save in correct
+                # format for load_files_universal, with im_test_file as the 
+                # output mask and mask_file as the ground truth mask
+                test_list_loc = []
+                file_list = pd.read_csv(file_list_loc).values
+    
+                for i,(mask, row) in enumerate(zip(imgs_mask_test, file_list)):
+                    [im_test_root, im_test_file, im_vis_file, mask_file, 
+                                                         mask_vis_file] = row
+                    
+                    # put into one grayscale image, discard background layer
+                    if args.n_classes == 2:
+                        mask2 = mask[:,:,1] 
+                    elif args.n_classes == 1:
+                        mask2 = mask
+                    else:
+                        print ("Need to write more code for n_classes > 2")
+                        return
+                    
+                    print ("i", i, "name:", im_test_root, 
+                                                   "shape:", mask2.shape)
+    
+                    mask2_vis = 255. * mask2
+                    mask2_vis = mask2_vis.astype(int)
+                    # save mask, mask_vis
+                    # use complex name with model details
+                    #outname = args.prefix + '_' + args.mode + '_im_' \
+                    #            + im_test_root.split('.')[0] + '.png'
+                    # just use simple name
+                    outname = im_test_root.split('.')[0] + '.png'
+                    outfile_mask = os.path.join(test_mask_dir, outname)
+                    outfile_mask_vis = os.path.join(test_mask_vis_dir, outname)
+                    cv2.imwrite(outfile_mask, mask2)        
+                    cv2.imwrite(outfile_mask_vis, mask2_vis)   
+                    # create list
+                    outrow = [im_test_root, outfile_mask, outfile_mask_vis, 
+                              mask_file, mask_vis_file]
+                    test_list_loc.append(outrow)
+                
+            # save test_list_loc to file
+            header = ['name', 'im_file', 'im_vis_file', 'mask_file', 
+                      'mask_vis_file']
+            df = pd.DataFrame(test_list_loc, columns=header)
+            df.to_csv(outfile_test_locs, index=False)      
+
+            
+###############################################################################
+###############################################################################
+                
+if __name__ == '__main__':
+    main()
