@@ -8,4 +8,11 @@
 
 ##########################################################################
 # Training
-##############################################################
+##########################################################################
+
+# train Las Vegas SpaceNet 3-band data with unet, and sliced into 400 
+#  	pixel cutouts
+basiss_path=/raid/local/src/basiss
+outname=AOI_2_Vegas_unet_2m_train
+cd $basiss_path
+nohup p
