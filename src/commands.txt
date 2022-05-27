@@ -30,4 +30,9 @@ nohup python -u src/basiss.py \
 	--epochs 128 \
 	--gpu 0 \
 	--prefix $outname > \
-		results
+		results/$outname.log & tail -f results/$outname.log
+
+
+##########################################################################
+# Testing
+##############################
