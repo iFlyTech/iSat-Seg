@@ -46,4 +46,8 @@ nohup python -u src/basiss.py \
 	--path $basiss_path \
 	--model unet \
 	--mode test \
-	--file_list massiv
+	--file_list massive_file_list.csv \
+	--model_weights AOI_2_Vegas_unet_2m_train_model_best.hdf5 \
+	--slice_x 400 --slice_y 400 \
+	--stride_x 300 --stride_y 300 \
+	--n_bands 3 \
