@@ -40,4 +40,10 @@ nohup python -u src/basiss.py \
 # test Las Vegas SpaceNet 3-band data with unet, and sliced into 400 
 #  	pixel cutouts
 basiss_path=/raid/local/src/basiss
-ou
+outname=AOI_2_Vegas_unet_2m_test
+cd $basiss_path
+nohup python -u src/basiss.py \
+	--path $basiss_path \
+	--model unet \
+	--mode test \
+	--file_list massiv
