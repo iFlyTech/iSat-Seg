@@ -51,3 +51,9 @@ nohup python -u src/basiss.py \
 	--slice_x 400 --slice_y 400 \
 	--stride_x 300 --stride_y 300 \
 	--n_bands 3 \
+	--n_classes 2 \
+	--batchsize 16 \
+	--gpu 3 \
+	--prefix $outname > \
+			results/$outname.log & tail -f results/$outname.log
+
