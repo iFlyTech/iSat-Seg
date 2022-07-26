@@ -16,4 +16,9 @@ import pandas as pd
 # add apls path and import apls_tools
 # https://github.com/CosmiQ/apls/tree/master/src
 path_apls_src = os.path.dirname(os.path.realpath(__file__))
-s
+sys.path.append(path_apls_src)
+import apls_tools
+
+
+###############################################################################
+def create_masks(path_data, 
