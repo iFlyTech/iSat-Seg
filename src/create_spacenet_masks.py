@@ -28,4 +28,7 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
                          'mask_vis_file']):
     '''
     Create masks from files in path_data.
-    Write 8bit images and mas
+    Write 8bit images and masks to file.
+    Return a dataframe of file locations with the following columns:
+        ['name', 'im_file', 'im_vis_file', 'mask_file', 'mask_vis_file']
+    We record locations of im_vis_file an
