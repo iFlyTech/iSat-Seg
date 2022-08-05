@@ -24,4 +24,8 @@ import apls_tools
 def create_masks(path_data, buffer_meters=2, n_bands=3,
                  burnValue=150, make_plots=True, overwrite_ims=False,
                  output_df_file='',
-                 header=['n
+                 header=['name', 'im_file', 'im_vis_file', 'mask_file',
+                         'mask_vis_file']):
+    '''
+    Create masks from files in path_data.
+    Write 8bit images and mas
