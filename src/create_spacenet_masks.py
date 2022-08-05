@@ -21,4 +21,7 @@ import apls_tools
 
 
 ###############################################################################
-def create_masks(path_data, 
+def create_masks(path_data, buffer_meters=2, n_bands=3,
+                 burnValue=150, make_plots=True, overwrite_ims=False,
+                 output_df_file='',
+                 header=['n
