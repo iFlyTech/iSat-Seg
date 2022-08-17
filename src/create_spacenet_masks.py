@@ -40,4 +40,7 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
     t0 = time.time()
     # set paths
     #path_apls = os.path.dirname(path_apls_src)
-    #path_data = os.path.
+    #path_data = os.path.join(path_apls, args.test_data_loc)
+    path_labels = os.path.join(path_data, 'geojson/spacenetroads')
+    # output directories
+    path_masks = os.path.join(path_data, 'masks_' + 
