@@ -53,4 +53,9 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
         path_images_8bit = os.path.join(path_data, 'RGB-PanSharpen_8bit')
     else:
         path_images_raw = os.path.join(path_data, 'MUL-PanSharpen')
-        path_images_8bit = os.path.join(path_data, 'MUL-PanSh
+        path_images_8bit = os.path.join(path_data, 'MUL-PanSharpen_8bit')
+        if not os.path.exists(path_images_vis):
+            print ("Need to run 3band prior to 8band!")
+            return
+        
+    # 
