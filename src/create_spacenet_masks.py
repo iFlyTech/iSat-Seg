@@ -58,4 +58,9 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
             print ("Need to run 3band prior to 8band!")
             return
         
-    # 
+    # create directories
+    for d in [path_images_8bit, path_masks, path_masks_plot]:
+        if not os.path.exists(d):
+            os.mkdir(d)
+    
+    # iterate through images, convert t
