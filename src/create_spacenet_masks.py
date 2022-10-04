@@ -73,4 +73,6 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
                     
         # define files
         name_root = 'AOI' + im_name.split('AOI')[1].split('.')[0]
-        
+        im_file_raw = os.path.join(path_images_raw, im_name)
+        im_file_out = os.path.join(path_images_8bit, im_name)
+        im_file_out_vis = im_file_out.replace('MUL', 'R
