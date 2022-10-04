@@ -68,4 +68,9 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
     im_files = os.listdir(path_images_raw)
     nfiles = len(im_files)
     for i,im_name in enumerate(im_files):
-        if n
+        if not im_name.endswith('.tif'):
+            continue
+                    
+        # define files
+        name_root = 'AOI' + im_name.split('AOI')[1].split('.')[0]
+        
