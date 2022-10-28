@@ -79,4 +79,9 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
         ## get visible file (if using 8band imagery we want the 3band file
         ##   for plotting purposes)
         #if n_bands == 3:
-        #    im_file_out_vis = im_file_o
+        #    im_file_out_vis = im_file_out
+        #else:
+        #    name_vis = im_name.replace('MUL', 'RGB')
+        #    im_file_out_vis = os.path.join(path_images_vis, name_vis)
+        
+    
