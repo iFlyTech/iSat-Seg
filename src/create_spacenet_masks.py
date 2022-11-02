@@ -84,4 +84,6 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
         #    name_vis = im_name.replace('MUL', 'RGB')
         #    im_file_out_vis = os.path.join(path_images_vis, name_vis)
         
-    
+        # convert to 8bit, if desired
+        if not os.path.exists(im_file_out) or overwrite_ims:
+            apls_tools.convert_to_8Bit(im_file_raw, im_file_out,
