@@ -94,4 +94,6 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
 
         # determine output files
         #label_file = os.path.join(path_labels, 'spacenetroads_AOI_2_Vegas_' \
-        #      
+        #                             + name_root + '.geojson')
+        label_file = os.path.join(path_labels, 'spacenetroads_' + name_root \
+                                  + '.geojson
