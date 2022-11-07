@@ -87,3 +87,7 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
         # convert to 8bit, if desired
         if not os.path.exists(im_file_out) or overwrite_ims:
             apls_tools.convert_to_8Bit(im_file_raw, im_file_out,
+                               outputPixType='Byte',
+                               outputFormat='GTiff',
+                               rescale_type='rescale',
+             
