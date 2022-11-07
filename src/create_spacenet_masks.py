@@ -90,4 +90,8 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
                                outputPixType='Byte',
                                outputFormat='GTiff',
                                rescale_type='rescale',
-             
+                               percentiles=[2,98])
+
+        # determine output files
+        #label_file = os.path.join(path_labels, 'spacenetroads_AOI_2_Vegas_' \
+        #      
