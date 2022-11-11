@@ -96,4 +96,8 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
         #label_file = os.path.join(path_labels, 'spacenetroads_AOI_2_Vegas_' \
         #                             + name_root + '.geojson')
         label_file = os.path.join(path_labels, 'spacenetroads_' + name_root \
-                                  + '.geojson
+                                  + '.geojson')
+        label_file_tot = os.path.join(path_labels, label_file)
+        mask_file = os.path.join(path_masks,  name_root + '.png')
+        if make_plots:
+            plot_file =
