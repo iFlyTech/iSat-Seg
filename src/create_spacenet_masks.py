@@ -108,4 +108,9 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
         print ("  im_name:", im_name)
         print ("  name_root:", name_root)
         print ("  im_file_out:", im_file_out)
-        print ("  m
+        print ("  mask_file:", mask_file)
+        print ("  output_plot_file:", plot_file)
+        
+        # create masks
+        if not os.path.exists(mask_file) or overwrite_ims:
+            mask
