@@ -113,4 +113,6 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
         
         # create masks
         if not os.path.exists(mask_file) or overwrite_ims:
-            mask
+            mask, gdf_buffer = apls_tools.get_road_buffer(label_file_tot, 
+                                                im_file_out_vis, 
+                 
