@@ -105,4 +105,7 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
             plot_file = ''
             
         print ("\n", i+1, "/", nfiles)
-     
+        print ("  im_name:", im_name)
+        print ("  name_root:", name_root)
+        print ("  im_file_out:", im_file_out)
+        print ("  m
