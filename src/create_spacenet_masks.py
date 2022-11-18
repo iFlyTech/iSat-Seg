@@ -100,4 +100,9 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
         label_file_tot = os.path.join(path_labels, label_file)
         mask_file = os.path.join(path_masks,  name_root + '.png')
         if make_plots:
-            plot_file =
+            plot_file = os.path.join(path_masks_plot,  name_root + '.png')
+        else:
+            plot_file = ''
+            
+        print ("\n", i+1, "/", nfiles)
+     
