@@ -117,4 +117,7 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
                                                 im_file_out_vis, 
                                                 mask_file, 
                                                 buffer_meters=buffer_meters, 
-                                                burnValue=b
+                                                burnValue=burnValue, 
+                                                bufferRoundness=6, 
+                                                plot_file=plot_file, 
+                      
