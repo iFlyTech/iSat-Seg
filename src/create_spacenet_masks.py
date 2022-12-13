@@ -120,4 +120,7 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
                                                 burnValue=burnValue, 
                                                 bufferRoundness=6, 
                                                 plot_file=plot_file, 
-                      
+                                                figsize= (6,6), #(13,4), 
+                                                fontsize=8,
+                                                dpi=500, show_plot=False, 
+  
