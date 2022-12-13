@@ -126,4 +126,9 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
                                                 verbose=False)  
 
         # resize in ingest so we don't have to save the very large arrays
-        outfile_list.appe
+        outfile_list.append([im_name, im_file_out, im_file_out_vis, 
+                             mask_file, mask_file])
+
+
+    # make dataframe and save
+    df = pd.DataFrame(outfile_list, columns=header
