@@ -142,4 +142,8 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
         
 
 ###############################################################################
-def main
+def main():
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--path_data', default='/spacenet_data/sample_data/AOI_2_Vegas_Train', type=str,
+ 
