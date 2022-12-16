@@ -137,4 +137,9 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
     print ("\ndf.ix[0]:", df.ix[0])
     print ("\nTotal data length:", len(df))
     t4 = time.time()
-    print (
+    print ("Time to run create_masks():", t4 - t0, "seconds")
+    return df
+        
+
+###############################################################################
+def main
