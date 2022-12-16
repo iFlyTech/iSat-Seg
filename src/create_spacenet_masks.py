@@ -131,4 +131,10 @@ def create_masks(path_data, buffer_meters=2, n_bands=3,
 
 
     # make dataframe and save
-    df = pd.DataFrame(outfile_list, columns=header
+    df = pd.DataFrame(outfile_list, columns=header)
+    if len(output_df_file) > 0:
+        df.to_csv(output_df_file, index=False)
+    print ("\ndf.ix[0]:", df.ix[0])
+    print ("\nTotal data length:", len(df))
+    t4 = time.time()
+    print (
