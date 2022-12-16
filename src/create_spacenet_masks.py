@@ -146,4 +146,6 @@ def main():
     
     parser = argparse.ArgumentParser()
     parser.add_argument('--path_data', default='/spacenet_data/sample_data/AOI_2_Vegas_Train', type=str,
- 
+        help='Folder containing imagery and geojson labels')  
+    parser.add_argument('--output_df_path', default='/spacenet_data/sample_data', type=str,
+        help='csv of dataframe containing
