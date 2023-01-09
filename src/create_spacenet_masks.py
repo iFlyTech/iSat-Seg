@@ -151,4 +151,7 @@ def main():
         help='csv of dataframe containing image and mask locations')  
     parser.add_argument('--buffer_meters', default=2, type=float,
         help='Buffer distance (meters) around graph')
-    parser.add_argum
+    parser.add_argument('--n_bands', default=3, type=int,
+        help='Number of bands to use [3,8]')
+    parser.add_argument('--burnValue', default=150, type=int,
+        help='Value of roa
