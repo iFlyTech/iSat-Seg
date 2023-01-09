@@ -148,4 +148,7 @@ def main():
     parser.add_argument('--path_data', default='/spacenet_data/sample_data/AOI_2_Vegas_Train', type=str,
         help='Folder containing imagery and geojson labels')  
     parser.add_argument('--output_df_path', default='/spacenet_data/sample_data', type=str,
-        help='csv of dataframe containing
+        help='csv of dataframe containing image and mask locations')  
+    parser.add_argument('--buffer_meters', default=2, type=float,
+        help='Buffer distance (meters) around graph')
+    parser.add_argum
