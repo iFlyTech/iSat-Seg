@@ -154,4 +154,7 @@ def main():
     parser.add_argument('--n_bands', default=3, type=int,
         help='Number of bands to use [3,8]')
     parser.add_argument('--burnValue', default=150, type=int,
-        help='Value of roa
+        help='Value of road pixels (for plotting)')
+    parser.add_argument('--make_plots', default=1, type=int,
+        help='Switch to create gridded plots of geojson, image, and mask')    
+    parser.
