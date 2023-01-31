@@ -157,4 +157,9 @@ def main():
         help='Value of road pixels (for plotting)')
     parser.add_argument('--make_plots', default=1, type=int,
         help='Switch to create gridded plots of geojson, image, and mask')    
-    parser.
+    parser.add_argument('--overwrite_ims', default=1, type=int,
+        help='Switch to overwrite 8bit images and masks')    
+
+    args = parser.parse_args()
+    
+    output_df_file = ar
