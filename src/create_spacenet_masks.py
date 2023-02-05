@@ -162,4 +162,7 @@ def main():
 
     args = parser.parse_args()
     
-    output_df_file = ar
+    output_df_file = args.output_df_path
+    path_masks = create_masks(args.path_data, 
+                              buffer_meters=args.buffer_meters, 
+                              n_band
