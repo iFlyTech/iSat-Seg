@@ -168,4 +168,8 @@ def main():
                               n_bands=args.n_bands,
                               burnValue=args.burnValue, 
                               output_df_file=output_df_file,
-                            
+                              make_plots=bool(args.make_plots),
+                              overwrite_ims=bool(args.overwrite_ims))
+    print ("Output_df_file:", output_df_file)
+
+    return path_
