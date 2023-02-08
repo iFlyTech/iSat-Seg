@@ -172,4 +172,9 @@ def main():
                               overwrite_ims=bool(args.overwrite_ims))
     print ("Output_df_file:", output_df_file)
 
-    return path_
+    return path_masks
+
+###############################################################################
+if __name__ == "__main__":
+    main()
+    
