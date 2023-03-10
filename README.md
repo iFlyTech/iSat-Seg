@@ -13,4 +13,6 @@ This package segments satellite imagery over large swaths of land, or sea. The e
 		Install nvidia-docker
 		Build container using the command nvidia-docker build -t isat-seg path_to_isat-seg/docker
 		Clone this Github repository
-		Run container using t
+		Run container using the command nvidia-docker run -it -v /raid:/raid --name isat-seg_train isat-seg
+		Download SpaceNet data.
+		Create training masks using a modified version of the code described
