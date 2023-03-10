@@ -15,4 +15,4 @@ This package segments satellite imagery over large swaths of land, or sea. The e
 		Clone this Github repository
 		Run container using the command nvidia-docker run -it -v /raid:/raid --name isat-seg_train isat-seg
 		Download SpaceNet data.
-		Create training masks using a modified version of the code described
+		Create training masks using a modified version of the code described in our blog. Execute these scripts in a unique conda environment. The commands below create the training images, replace "train" with "test" to create testing images
