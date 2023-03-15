@@ -21,4 +21,6 @@ This package segments satellite imagery over large swaths of land, or sea. The e
 
 Please have a look into our repository and contribute to developing a more efficient solution for semantic segmentation of satellite imagery.
 
-[![Example Image](/example_ims/mas
+[![Example Image](/example_ims/mask_img998.png?raw=true "Figure 1")](/example_ims/mask_img998.png)
+
+[![Example Image](/example_ims/unet0.png?raw=true "Figure 2")](/example_ims/unet0.png)
