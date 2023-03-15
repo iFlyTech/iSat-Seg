@@ -19,4 +19,6 @@ This package segments satellite imagery over large swaths of land, or sea. The e
 		Train a model as per instructions in the repository.
 		Test on images of arbitrary size using the instructions provided in the repository.
 
-Please have a l
+Please have a look into our repository and contribute to developing a more efficient solution for semantic segmentation of satellite imagery.
+
+[![Example Image](/example_ims/mas
